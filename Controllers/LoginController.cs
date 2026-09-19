@@ -12,28 +12,17 @@ namespace NeuroSync.Controllers;
 /// Controlador responsável pela autenticação e controle de sessão da usuária no sistema.
 /// </summary>
 public class LoginController(AppDbContext context) : Controller
+//faz a injeção de dependências e cria a variavel _context automaticamente.
 {
-    // =========================================================================
-    // 1. TELA DE LOGIN
-    // =========================================================================
-
-    /// <summary>
-    /// Exibe a página visual de autenticação do NeuroSync.
-    /// </summary>
+    
     [HttpGet]
     public IActionResult Index() => View();
 
-    // =========================================================================
-    // 2. PROCESSAMENTO DO LOGIN
-    // =========================================================================
-
-    /// <summary>
-    /// Valida as credenciais informadas, autentica e emite o Cookie de sessão com as claims da usuária.
-    /// </summary>
     [HttpPost]
     public async Task<IActionResult> Entrar(string usuario, string senha)
     {
         if (string.IsNullOrWhiteSpace(usuario) || string.IsNullOrWhiteSpace(senha))
+        //caso tenha vindo algua informação nula do formulario, já retorna o erro.
         {
             ViewBag.Erro = "Por favor, informe o usuário/e-mail e a senha.";
             return View("Index");
@@ -42,10 +31,20 @@ public class LoginController(AppDbContext context) : Controller
         var termo = usuario.Trim();
 
         // Localiza usuário por e-mail ou nome
+        //context.Usuarios: referencia a tabela do banco de dados.
+        //FirstouDefaultAsync: busca o prieiro registro correspondente no db, ou nulo se nao houver.
+        //await: impede que o programa trave enquanto a busca é feita.
         var usuarioEncontrado = await context.Usuarios
             .FirstOrDefaultAsync(u => (u.Email.ToLower() == termo.ToLower() || u.Nome.ToLower() == termo.ToLower()) && u.Senha == senha);
+            //na função lambda, u é um parametro do tipo Usuario.
+            //O arrow, => implicitamente retorna uma expressão booleana, que será testada com cada registro do banco de dados.
+            // e caso satisfaça as condições, o registro será retornado ao UsuarioEncontrado.
 
-        // Fallback de primeiro acesso: cria usuária padrão administrativa se a base estiver vazia
+
+
+
+        // Fallback de primeiro acesso: caso o banco esteja vazio, sem nenhum usuario, e ele tente digitar as credenciais de admin, o sistema cria esse usuário
+        //impedindo que o sistema fique inutilizavel.
         if (usuarioEncontrado == null && termo.Equals("admin", StringComparison.OrdinalIgnoreCase) && senha == "admin123")
         {
             usuarioEncontrado = await context.Usuarios.FirstOrDefaultAsync();
@@ -63,6 +62,7 @@ public class LoginController(AppDbContext context) : Controller
             }
         }
 
+        //Cria as credenciais de autenticação do usuario caso ele tenha sido encontrado no banco de dados.
         if (usuarioEncontrado != null)
         {
             Claim[] claims = [
@@ -71,7 +71,10 @@ public class LoginController(AppDbContext context) : Controller
                 new(ClaimTypes.Email, usuarioEncontrado.Email)
             ];
 
+            // o sistema informa ao navegador que o usuário foi autenticado, e cria um cookie de sessão para que ele se mantenha lgoado
+            //ele tambem cripografa os dados (CookieAuthenticationDefaults.AuthenticationScheme) para que não seja possível ter acesso as credenciais.
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
 
             return RedirectToAction("BoasVindas", "Home");
@@ -80,14 +83,6 @@ public class LoginController(AppDbContext context) : Controller
         ViewBag.Erro = "Usuário ou senha inválidos!";
         return View("Index");
     }
-
-    // =========================================================================
-    // 3. LOGOUT / SAÍDA DO SISTEMA
-    // =========================================================================
-
-    /// <summary>
-    /// Encerra a sessão atual e revoga o Cookie de autenticação.
-    /// </summary>
     public async Task<IActionResult> Sair()
     {
         await HttpContext.SignOutAsync();

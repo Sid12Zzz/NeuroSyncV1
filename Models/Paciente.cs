@@ -35,6 +35,7 @@ public class Paciente
     [MaxLength(100)]
     [Column("responsavel")]
     public string? Responsavel { get; set; }
+    //Anotação '?' faz com que o campo seja opcional, permitindo valores nulos.
 
     [Column("data_cadastro")]
     public DateTime DataCadastro { get; set; } = DateTime.Now;
